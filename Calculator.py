@@ -33,28 +33,21 @@ class Stack():
         if self.length() == 0:
             return True
 
-class App(tk.Frame, object):
-    def __init__(self, master):
-        super(App, self).__init__(master)
-        self.pack() #Class way of creating root window
-
-        #This will be the calculator display
-        self.displayFrame = tk.Frame(relief = 'sunken',highlightbackground = 'black',highlightthickness = 1)
-        self.display = tk.Label(master=self.displayFrame)
-        self.displayFrame.pack(fill = 'x')
+class DisplayFrame(tk.Frame):
+    #This will be the calculator display
+    def __init__(self, parent):
+        tk.Frame.__init__(self,parent,relief = 'sunken',highlightbackground = 'black',highlightthickness = 1)
+        self.display = tk.Label(master=self)
         self.display.pack()
-        self.error = False
-        
+        self.pack(fill = 'x')
 
-        #This will be the keypads
+class KeyPadFrame(tk.Frame):
+    def __init__(self,parent):
+        tk.Frame.__init__(self,parent)
+        self.mainframe = parent
         self.btnlist = {}
-        self.keyFrame = tk.Frame(master = master)
-        self.keyFrame.grid()
-        self.keyFrame.pack(expand = True,fill="both")
-        
-        
-    
-        
+        self.grid()
+        self.pack(expand = True,fill="both")
         self.buttons = [
 
                     ['C','%','Del','/'],
@@ -62,8 +55,7 @@ class App(tk.Frame, object):
                     ['4','5','6','-'],
                     ['1','2','3','+'],                                
                     ['(','0',')','='] 
-        ]           
-                                        
+        ]          
         self.bindings = {}        
         for charlist in self.buttons:
             for char in charlist:
@@ -76,45 +68,52 @@ class App(tk.Frame, object):
         self.bindings['/'] = 'slash'
         self.bindings['*'] = 'asterisk'
         self.bindings['('] = 'parenleft'
-        self.bindings[')'] = 'parenright'
+        self.bindings[')'] = 'parenright' 
+                                        
         for i in range(len(self.buttons)):
-            self.keyFrame.columnconfigure(i,weight = 1, minsize = 30)
-            self.keyFrame.rowconfigure(i, weight = 1,minsize = 30)
+            self.columnconfigure(i,weight = 1, minsize = 30)
+            self.rowconfigure(i, weight = 1,minsize = 30)
             for j in range(len(self.buttons[i])):
                 val = self.buttons[i][j]
-                btn = tk.Button(self.keyFrame,text = val,pady = 5,padx = 5, relief = tk.RAISED, command = lambda x = val: self.updateLabel(x))
+                btn = tk.Button(self,text = val,pady = 5,padx = 5, relief = tk.RAISED, command = lambda x = val: self.mainframe.updateLabel(x))
                 self.btnlist[val] = btn
                 self.btnlist[val].grid(row = i, column = j,padx = 5,pady = 5,sticky = 'NSEW')
 
+
+class App(tk.Tk):
+    def __init__(self, *args, **kwargs):
+        tk.Tk.__init__(self,*args, **kwargs)
+        container = MainPage(self)
+        container.pack() #Class way of creating root window
+
+class MainPage(tk.Frame):
+    def __init__(self,parent):
+        tk.Frame.__init__(self,parent,width = 400,height = 400)
+        self.displayFrame = DisplayFrame(self)
+        self.KeyPadFrame = KeyPadFrame(self)
+        
     def updateLabel(self,prompt):
-        nowtext = self.display.cget("text")
+        nowtext = self.displayFrame.display.cget("text")
         if "Syntax Error" in nowtext:
-            print("WHY NOT WORKING")
-            self.display.configure(text = '')
+            self.displayFrame.display.configure(text = '')
             nowtext = ''
              
-
         if prompt == '=':
              out = self.calculate(nowtext)
-             self.display.configure(text = out)
+             self.displayFrame.display.configure(text = out)
         elif prompt == 'C':
-            self.display.configure(text = '')
+            self.displayFrame.display.configure(text = '')
         elif prompt == 'Del':
-            self.display.configure(text = nowtext[:-1])
-        elif prompt in self.bindings:
-            self.display.configure(text = nowtext+prompt)
+            self.displayFrame.display.configure(text = nowtext[:-1])
+        elif prompt in self.KeyPadFrame.bindings:
+            self.displayFrame.display.configure(text = nowtext+prompt)
         else:
-            self.display.configure(text = "Syntax Error")
+            self.displayFrame.display.configure(text = "Syntax Error")
 
-    def new_method(self):
-        pass
 
     def calculate(self,text):
-        print("Syntax Error" in text)
         if "Syntax Error" in text:
-            print('hi')
-            self.display.configure(text = ' ')
-            return ''
+            return 'Syntax Error'
 
         inp = self.to_rpn(text)
         print(inp)
@@ -132,8 +131,8 @@ class App(tk.Frame, object):
                 right = numstack.pop()
                 left = numstack.pop()
                 if left ==None or right == None:
-                    self.display.configure(text = 'Syntax Error')
-                    print('hi')
+                    return "Syntax Error"
+    
                 else:
                     right,left = float(right),float(left)
                     pass
@@ -151,9 +150,7 @@ class App(tk.Frame, object):
                 numstack.push(result)
         
         if numstack.length()!= 1:
-            print('hello! wrong already!')
-            self.display.configure(text = 'Syntax Error')
-            pass
+            return "Syntax Error"
         else:
             return str(numstack.pop())
 
@@ -184,7 +181,6 @@ class App(tk.Frame, object):
                 newcharlist.append(i)
         if currnum != '':
             newcharlist.append(currnum)
-        print(newcharlist,'hi')
         #Next, need to do RPN conversion
         opstack = Stack()
         out = Stack()
@@ -193,7 +189,6 @@ class App(tk.Frame, object):
                 out.push(i)
             else:
                 curop = i
-                print(opstack.stack,i)
                 if curop in '-+/*%':
                     while not opstack.isEmpty() and ops[curop] <= ops[opstack.peek()]:
                         out.push(opstack.pop())
@@ -212,14 +207,13 @@ class App(tk.Frame, object):
 
                 else:
                     out.push(curop)
-        print(out.stack)
+        
         while not opstack.isEmpty():
             val = opstack.pop()
             if val == '(':
                 return None
             else:
                 out.push(val)
-        print(out.stack)
 
         return out
 
@@ -240,6 +234,5 @@ class App(tk.Frame, object):
     
         
 
-root = tk.Tk()
-myApp = App(root) #Creates instance of App,using window created
+myApp = App() #Creates instance of App,using window created
 myApp.mainloop() #Runs program
